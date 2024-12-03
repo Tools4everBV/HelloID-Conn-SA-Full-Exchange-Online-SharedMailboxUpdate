@@ -47,9 +47,9 @@
 ## Introduction
 
 #### Description
-_HelloID-Conn-SA-Full-Exchange-Online-SharedMailboxCreate_ is a template designed for use with HelloID Service Automation (SA) Delegated Forms. It can be imported into HelloID and customized according to your requirements. 
+_HelloID-Conn-SA-Full-Exchange-Online-SharedMailboxUpdate_ is a template designed for use with HelloID Service Automation (SA) Delegated Forms. It can be imported into HelloID and customized according to your requirements. 
 
-By using this delegated form, you can create a shared mailbox in Exchange Online. The following options are available:
+By using this delegated form, you can update a shared mailbox in Exchange Online. The following options are available:
  1. Search and select the shared mailbox
  2. Option to edit the shared mailbox `name`.
  3. Option to edit the shared mailbox `alias`.

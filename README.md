@@ -60,11 +60,11 @@ By using this delegated form, you can update a shared mailbox in Exchange Online
 #### ExchangeOnlineManagement module
 The `ExchangeOnlineManagement` module provide a set of commands to interact with Exchange Online. The commands used are listed in the table below.
 
-| Endpoint    | Description                                     |
-| ----------- | ----------------------------------------------- |
-| Get-User    | Required for Get-Mailbox / Set-Mailbox          |
-| Get-Mailbox | To validate the input in Exchange Online        |
-| Set-Mailbox | To update the shared mailbox in Exchange Online |
+| Endpoint    | Description                                           |
+| ----------- | ----------------------------------------------------- |
+| Get-User    | Required for Get-Mailbox / Set-Mailbox                |
+| Get-Mailbox | To retrieve and validate the input in Exchange Online |
+| Set-Mailbox | To update the shared mailbox in Exchange Online       |
 
 #### Form Options
 The following options are available in the form:

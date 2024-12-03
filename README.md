@@ -77,7 +77,7 @@ The following options are available in the form:
 #### Task Actions
 The following actions will be performed after submitting the form:
 
-1. **Creating the shared mailbox in exchange online**:
+1. **Retrieve the shared mailbox in exchange online**:
    - The Get-Mailbox command will be used to get the current Aliases
 2. **Updating the shared mailbox in exchange online**:
    - The Set-Mailbox command will be used to update the shared mailbox

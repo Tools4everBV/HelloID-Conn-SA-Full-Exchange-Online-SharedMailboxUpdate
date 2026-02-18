@@ -1,16 +1,3 @@
-#######################################################################
-# Template: HelloID SA Powershell data source
-# Name: shared-mailbox-update-check-mailbox-exists
-# Date: 02-12-2024
-#######################################################################
-
-# For basic information about powershell data sources see:
-# https://docs.helloid.com/en/service-automation/dynamic-forms/data-sources/powershell-data-sources.html
-
-# Service automation variables:
-# https://docs.helloid.com/en/service-automation/service-automation-variables.html
-
-#region init
 # Enable TLS1.2
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
 
@@ -20,11 +7,6 @@ $WarningPreference = "Continue"
 
 $outputText = [System.Collections.Generic.List[PSCustomObject]]::new()
 
-# global variables (Automation --> Variable libary):
-$TenantId = $EntraTenantId
-$AppID = $EntraAppID
-$Secret = $EntraSecret
-$Organization = $EntraOrganization
 
 # variables configured in form:
 $Name = $datasource.Name
@@ -40,6 +22,20 @@ $Domain = $Domain[1]
 # PowerShell commands to import
 $commands = @("Get-User", "Get-Mailbox")
 #endregion init
+
+function Get-MSEntraCertificate {
+    [CmdletBinding()]
+    param()
+    try {
+        $rawCertificate = [system.convert]::FromBase64String($EntraIdCertificateBase64String)
+        $certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($rawCertificate, $EntraIdCertificatePassword, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
+        Write-Output $certificate
+    }
+    catch {
+        $PSCmdlet.ThrowTerminatingError($_)
+    }
+}
+
 
 try {
     if (($currentName -eq $Name) -and ($currentPrimarySmtpAddress -eq $PrimarySmtpAddress) -and ($currentAlias -eq $Alias)) {
@@ -58,66 +54,37 @@ try {
     }
 
     if (-not($outputText.isError -contains - $true)) {
-        #region import module
-        $actionMessage = "importing $moduleName module"
-
-        $importModuleParams = @{
+        $actionMessage = "importing module [ExchangeOnlineManagement]"
+        $importModuleSplatParams = @{
             Name        = "ExchangeOnlineManagement"
             Cmdlet      = $commands
-            ErrorAction = 'Stop'
+            Verbose     = $false
+            ErrorAction = "Stop"
         }
+        $null = Import-Module @importModuleSplatParams
 
-        Import-Module @importModuleParams
-        #endregion import module
-
-        #region create access token
-        Write-Verbose "Creating Access Token"
-        $actionMessage = "creating access token"
+        #region Retrieving certificate
+        $actionMessage = "retrieving certificate"
+        $certificate = Get-MSEntraCertificate
+        #endregion Retrieving certificate
         
-        $body = @{
-            grant_type    = "client_credentials"
-            client_id     = "$AppID"
-            client_secret = "$Secret"
-            resource      = "https://outlook.office365.com"
+        #region Connect to Microsoft Exchange Online
+        # Docs: https://learn.microsoft.com/en-us/powershell/module/exchange/connect-exchangeonline?view=exchange-ps
+        $actionMessage = "connecting to Microsoft Exchange Online"
+        $createExchangeSessionSplatParams = @{
+            Organization          = $EntraIdOrganization
+            AppID                 = $EntraIdAppId
+            Certificate           = $certificate
+            CommandName           = $commands
+            ShowBanner            = $false
+            ShowProgress          = $false
+            TrackPerformance      = $false
+            SkipLoadingCmdletHelp = $true
+            SkipLoadingFormatData = $true
+            ErrorAction           = "Stop"
         }
-
-        $exchangeAccessTokenParams = @{
-            Method          = 'POST'
-            Uri             = "https://login.microsoftonline.com/$TenantId/oauth2/token"
-            Body            = $body
-            ContentType     = 'application/x-www-form-urlencoded'
-            UseBasicParsing = $true
-        }
-        
-        $accessToken = (Invoke-RestMethod @exchangeAccessTokenParams).access_token
-        #endregion create access token
-
-        #region connect to Exchange Online
-        Write-Verbose "Connecting to Exchange Online"
-        $actionMessage = "connecting to Exchange Online"
-
-        $exchangeSessionParams = @{
-            Organization     = $Organization
-            AppID            = $AppID
-            AccessToken      = $accessToken
-            CommandName      = $commands
-            ShowBanner       = $false
-            ShowProgress     = $false
-            TrackPerformance = $false
-            ErrorAction      = 'Stop'
-        }
-        Connect-ExchangeOnline @exchangeSessionParams
-        
-        Write-Information "Successfully connected to Exchange Online"
-        #endregion connect to Exchange Online
-
-        #region check shared mailbox
-        $actionMessage = "getting shared mailbox"
-
-        $SharedMailboxParams = @{
-            Filter      = "{DisplayName -eq '$Name' -or Name -eq '$Name' -or Alias -eq '$Alias' -or PrimarySmtpAddress -eq '$PrimarySmtpAddress'}"
-            ErrorAction = 'Stop'        
-        }
+        $null = Connect-ExchangeOnline @createExchangeSessionSplatParams
+        Write-Information "Connected to Microsoft Exchange Online"
     
         $SharedMailboxes = Get-Mailbox @SharedMailboxParams
 

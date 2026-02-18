@@ -40,12 +40,12 @@
                 "field": "name"
               },
               {
-                "headerName": "Primary Smtp Address",
-                "field": "primarySmtpAddress"
-              },
-              {
                 "headerName": "Alias",
                 "field": "alias"
+              },
+              {
+                "headerName": "Primary Smtp Address",
+                "field": "primarySmtpAddress"
               },
               {
                 "headerName": "Id",

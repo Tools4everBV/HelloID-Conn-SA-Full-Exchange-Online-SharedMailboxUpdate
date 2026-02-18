@@ -1,29 +1,9 @@
-#######################################################################
-# Template: HelloID SA Delegated form task
-# Name: Exchange Online Shared Mailbox - Update
-# Date: 02-12-2024
-#######################################################################
-
-# For basic information about delegated form tasks see:
-# https://docs.helloid.com/en/service-automation/delegated-forms/delegated-form-powershell-scripts.html
-
-# Service automation variables:
-# https://docs.helloid.com/en/service-automation/service-automation-variables.html
-
-#region init
-
 # Enable TLS1.2
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
 
 $VerbosePreference = "SilentlyContinue"
 $InformationPreference = "Continue"
 $WarningPreference = "Continue"
-
-# global variables (Automation --> Variable libary):
-$TenantId = $EntraTenantId
-$AppID = $EntraAppID
-$Secret = $EntraSecret
-$Organization = $EntraOrganization
 
 # variables configured in form:
 $exchangeMailGUID = $form.sharedMailbox.id
@@ -39,62 +19,71 @@ $commands = @("Get-User", "Set-Mailbox" , "Get-Mailbox")
 
 #endregion functions
 
-try {
-    #region import module
-    $actionMessage = "importing $moduleName module"
+function Get-MSEntraCertificate {
+    [CmdletBinding()]
+    param()
+    try {
+        $rawCertificate = [system.convert]::FromBase64String($EntraIdCertificateBase64String)
+        $certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($rawCertificate, $EntraIdCertificatePassword, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
+        Write-Output $certificate
+    }
+    catch {
+        $PSCmdlet.ThrowTerminatingError($_)
+    }
+}
 
-    $importModuleParams = @{
+#region Import module & connect
+try {    
+    $actionMessage = "importing module [ExchangeOnlineManagement]"
+    $importModuleSplatParams = @{
         Name        = "ExchangeOnlineManagement"
         Cmdlet      = $commands
-        ErrorAction = 'Stop'
+        Verbose     = $false
+        ErrorAction = "Stop"
     }
+    $null = Import-Module @importModuleSplatParams
 
-    Import-Module @importModuleParams
-    #endregion import module
-
-    #region create access token
-    Write-Verbose "Creating Access Token"
-    $actionMessage = "creating access token"
-        
-    $body = @{
-        grant_type    = "client_credentials"
-        client_id     = "$AppID"
-        client_secret = "$Secret"
-        resource      = "https://outlook.office365.com"
+    #region Retrieving certificate
+    $actionMessage = "retrieving certificate"
+    $certificate = Get-MSEntraCertificate
+    #endregion Retrieving certificate
+    
+    #region Connect to Microsoft Exchange Online
+    # Docs: https://learn.microsoft.com/en-us/powershell/module/exchange/connect-exchangeonline?view=exchange-ps
+    $actionMessage = "connecting to Microsoft Exchange Online"
+    $createExchangeSessionSplatParams = @{
+        Organization          = $EntraIdOrganization
+        AppID                 = $EntraIdAppId
+        Certificate           = $certificate
+        CommandName           = $commands
+        ShowBanner            = $false
+        ShowProgress          = $false
+        TrackPerformance      = $false
+        SkipLoadingCmdletHelp = $true
+        SkipLoadingFormatData = $true
+        ErrorAction           = "Stop"
     }
-
-    $exchangeAccessTokenParams = @{
-        Method          = 'POST'
-        Uri             = "https://login.microsoftonline.com/$TenantId/oauth2/token"
-        Body            = $body
-        ContentType     = 'application/x-www-form-urlencoded'
-        UseBasicParsing = $true
+    $null = Connect-ExchangeOnline @createExchangeSessionSplatParams
+    Write-Information "Connected to Microsoft Exchange Online"
+} 
+catch {
+    $ex = $PSItem
+    if (-not [string]::IsNullOrEmpty($ex.Exception.Data.RemoteException.Message)) {
+        $warningMessage = "Error at Line [$($ex.InvocationInfo.ScriptLineNumber)]: $($ex.InvocationInfo.Line). Error: $($ex.Exception.Data.RemoteException.Message)"
+        $auditMessage = "Error $($actionMessage). Error: $($ex.Exception.Data.RemoteException.Message)"        
     }
-        
-    $accessToken = (Invoke-RestMethod @exchangeAccessTokenParams).access_token
-    #endregion create access token
-
-    #region connect to Exchange Online
-    Write-Verbose "Connecting to Exchange Online"
-    $actionMessage = "connecting to Exchange Online"
-
-    $exchangeSessionParams = @{
-        Organization     = $Organization
-        AppID            = $AppID
-        AccessToken      = $accessToken
-        CommandName      = $commands
-        ShowBanner       = $false
-        ShowProgress     = $false
-        TrackPerformance = $false
-        ErrorAction      = 'Stop'
+    else {
+        $warningMessage = "Error at Line [$($ex.InvocationInfo.ScriptLineNumber)]: $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
+        $auditMessage = "Error $($actionMessage). Error: $($ex.Exception.Message)"
     }
-    Connect-ExchangeOnline @exchangeSessionParams
-        
-    Write-Information "Successfully connected to Exchange Online"
-    #endregion connect to Exchange Online
+    Write-Warning $warningMessage
+    Write-Error $auditMessage
+}
 
-    #region get sharedmailbox
 
+
+#region get sharedmailbox
+try{
     $GetMailboxParams = @{
         Identity    = $exchangeMailGUID
         ErrorAction = 'Stop'
@@ -142,17 +131,15 @@ try {
 }
 catch {
     $ex = $PSItem
-    if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
-        $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
-        $errorMessage = ($ex.ErrorDetails.Message | Convertfrom-json).error_description
+    if (-not [string]::IsNullOrEmpty($ex.Exception.Data.RemoteException.Message)) {
+        $warningMessage = "Error at Line [$($ex.InvocationInfo.ScriptLineNumber)]: $($ex.InvocationInfo.Line). Error: $($ex.Exception.Data.RemoteException.Message)"
+        $auditMessage = "Error $($actionMessage). Error: $($ex.Exception.Data.RemoteException.Message)"
     }
     else {
-        $errorMessage = $($ex.Exception.message)
+        $warningMessage = "Error at Line [$($ex.InvocationInfo.ScriptLineNumber)]: $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
+        $auditMessage = "Error $($actionMessage). Error: $($ex.Exception.Message)"
     }
-
-    Write-Error "Error $actionMessage for Exchange Online shared mailbox [$name]. Error: $errorMessage"
-
-    $Log = @{
+   $Log = @{
         Action            = "UpdateResource" # optional. ENUM (undefined = default) 
         System            = "Exchange Online" # optional (free format text) 
         Message           = "Error $actionMessage for Exchange Online shared mailbox [$name]" # required (free format text) 
@@ -160,6 +147,8 @@ catch {
         TargetDisplayName = $name # optional (free format text) 
         TargetIdentifier  = $([string]$exchangeMailGUID) # optional (free format text) 
     }
-    #send result back  
     Write-Information -Tags "Audit" -MessageData $log
+    Write-Warning $warningMessage
+    Write-Error $auditMessage
+    # exit # use when using multiple try/catch and the script must stop
 }

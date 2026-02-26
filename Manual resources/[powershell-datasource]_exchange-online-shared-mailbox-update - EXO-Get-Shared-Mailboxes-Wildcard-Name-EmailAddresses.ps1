@@ -1,21 +1,38 @@
-# variables configured in form
-$mailbox = $form.gridMailbox
-$mailboxDisplayName = $form.displayName
-$mailboxMailPrefix = $form.mailPrefix
-$mailboxMailDomain = $form.mailDomain.id
-$mailboxPrimarySmtpAddress = "$($mailboxMailPrefix)@$($mailboxMailDomain)"
-$mailboxAlias = $form.alias
+# Variables configured in form
+$searchValue = $datasource.searchValue
+if ($searchValue -eq "*") {
+    $filter = "RecipientTypeDetails -eq 'SharedMailbox'"
+}
+else {
+    $filter = "(Name -like '*$searchValue*' -or EmailAddresses -like '*$searchValue*') -and RecipientTypeDetails -eq 'SharedMailbox'"
+}
 
 # Global variables
 # Outcommented as these are set from Global Variables
-# $EntraIdOrganization = ""
+# $EntraIdTenantId = ""
 # $EntraIdAppId = ""
 # $EntraIdCertificateBase64String = ""
 # $EntraIdCertificatePassword = ""
 
 # Fixed values
+# Properties to select - Select only needed properties to limit memory usage and speed up processing
+$propertiesToSelect = @(
+    "Id"
+    , "Guid"
+    , "ExchangeGuid"
+    , "ExternalDirectoryObjectId"
+    , "DisplayName"
+    , "PrimarySmtpAddress"
+    , "EmailAddresses"
+    , "Alias"
+    , "RecipientTypeDetails"
+)
+
+# PowerShell commands to import
+# Use Get-EXORecipient instead of Get-Mailbox as Get-EXORecipient is faster
 $commands = @(
-    "Set-Mailbox"
+    "Get-Recipient"
+    , "Get-EXORecipient"
 )
 
 # Enable TLS1.2
@@ -64,14 +81,10 @@ try {
 
     $null = Import-Module @importModuleSplatParams
 
-    Write-Verbose "Imported module [ExchangeOnlineManagement]"
-
     # Convert base64 certificate string to certificate object
     $actionMessage = "converting base64 certificate string to certificate object"
 
     $certificate = Get-MSEntraCertificate -CertificateBase64String $EntraIdCertificateBase64String -CertificatePassword $EntraIdCertificatePassword
-
-    Write-Verbose "Converted base64 certificate string to certificate object"
 
     # Connect to Microsoft Exchange Online
     # Docs: https://learn.microsoft.com/en-us/powershell/module/exchange/connect-exchangeonline?view=exchange-ps
@@ -92,47 +105,31 @@ try {
 
     $null = Connect-ExchangeOnline @createExchangeSessionSplatParams
 
-    # Update shared mailbox
-    $actionMessage = "updating shared mailbox with PrimarySmtpAddress [$($mailbox.PrimarySmtpAddress)]"
+    # Get Mailboxes
+    # Docs: https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-exorecipient?view=exchange-ps
+    $actionMessage = "querying shared mailboxes that match filter [$($filter)]"
 
-    # Get current email addresses and prepare new email address list with updated primary SMTP address, while keeping existing proxy addresses (except the old primary SMTP address)
-    $currentAddresses = $mailbox.EmailAddresses
-    $proxyAddresses = @()
-    foreach ($address in $currentAddresses) {
-        if ($address.StartsWith('SMTP:')) {
-            $address = $address -replace 'SMTP:', 'smtp:'
-        }
-        if ($address -ne "smtp:" + $mailboxPrimarySmtpAddress) {
-            $proxyAddresses += $address
-        }
-    }
-    $proxyAddresses += 'SMTP:' + $mailboxPrimarySmtpAddress
-
-    $UpdateMailboxParams = @{
-        Identity       = $mailbox.PrimarySmtpAddress
-        Name           = $mailboxDisplayName
-        DisplayName    = $mailboxDisplayName
-        EmailAddresses = $proxyAddresses
-        ErrorAction    = 'Stop'
+    $getMailboxesSplatParams = @{
+        RecipientTypeDetails = "SharedMailbox"
+        ResultSize           = "Unlimited"
+        Filter               = $filter
+        Properties           = $propertiesToSelect
+        ErrorAction          = 'Stop'
     }
 
-    # Add Alias if specified
-    if (-not [string]::IsNullOrEmpty($mailboxAlias)) {
-        $UpdateMailboxParams["Alias"] = $mailboxAlias
-    }
+    $mailboxes = Get-EXORecipient @getMailboxesSplatParams | Select-Object -Property $propertiesToSelect
+    Write-Information "Queried shared mailboxes that match filter [$($filter)]. Result count: $(($mailboxes | Measure-Object).Count)"
 
-    $null = Set-Mailbox @UpdateMailboxParams
-
-    # Send auditlog to HelloID
-    $Log = @{
-        Action            = "UpdateResource" # optional. ENUM (undefined = default) 
-        System            = "ExchangeOnline" # optional (free format text) 
-        Message           = "Updated shared mailbox with PrimarySmtpAddress [$($mailboxPrimarySmtpAddress)]"  # required (free format text) 
-        IsError           = $false # optional. Elastic reporting purposes only. (default = $false. $true = Executed action returned an error) 
-        TargetDisplayName = $mailboxDisplayName # optional (free format text) 
-        TargetIdentifier  = $mailboxPrimarySmtpAddress # optional (free format text) 
-    }
-    Write-Information -Tags "Audit" -MessageData $log
+    # Sort and Send results to HelloID
+    $actionMessage = "sending results to HelloID"
+    $mailboxes | Add-Member -MemberType NoteProperty -Name "mailPrefix" -Value $null -Force
+    $mailboxes | Add-Member -MemberType NoteProperty -Name "mailDomain" -Value $null -Force
+    $mailboxes | Sort-Object -Property DisplayName | ForEach-Object {
+        # Set mailDomain and mailPrefix properties
+        $_.mailPrefix = $_.PrimarySmtpAddress.split('@')[0]
+        $_.mailDomain = $_.PrimarySmtpAddress.split('@')[1]
+        Write-Output $_
+    } 
 }
 catch {
     $ex = $PSItem
@@ -144,19 +141,9 @@ catch {
         $warningMessage = "Error at Line [$($ex.InvocationInfo.ScriptLineNumber)]: $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
         $auditMessage = "Error $($actionMessage). Error: $($ex.Exception.Message)"
     }
-
-    $Log = @{
-        Action            = "UpdateResource" # optional. ENUM (undefined = default) 
-        System            = "ExchangeOnline" # optional (free format text) 
-        Message           = $auditMessage # required (free format text) 
-        IsError           = $true # optional. Elastic reporting purposes only. (default = $false. $true = Executed action returned an error) 
-        TargetDisplayName = $mailbox.DisplayName # optional (free format text) 
-        TargetIdentifier  = $mailbox.PrimarySmtpAddress # optional (free format text) 
-    }
-    
-    Write-Information -Tags "Audit" -MessageData $log
     Write-Warning $warningMessage
     Write-Error $auditMessage
+    # exit # use when using multiple try/catch and the script must stop
 }
 finally {
     # Docs: https://learn.microsoft.com/en-us/powershell/module/exchange/disconnect-exchangeonline?view=exchange-ps

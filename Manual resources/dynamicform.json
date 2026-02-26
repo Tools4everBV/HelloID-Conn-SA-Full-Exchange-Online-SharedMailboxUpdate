@@ -1,55 +1,60 @@
 [
   {
-    "label": "Search Sharedmailbox",
+    "label": "Select mailbox",
     "fields": [
       {
         "templateOptions": {
-          "title": "Retrieving this information from Exchange Online takes an average of +/- 10 seconds.",
+          "title": "Retrieving this information from Exchange takes an average of +/- 10 seconds. Please wait while the data is loaded.",
           "titleField": "",
           "bannerType": "Info",
-          "useBody": true
+          "useBody": false
         },
         "type": "textbanner",
-        "summaryVisibility": "Show",
-        "body": "Please wait so we can retreive the input.",
+        "summaryVisibility": "Hide element",
+        "body": "Text Banner Content",
         "requiresTemplateOptions": false,
         "requiresKey": false,
         "requiresDataSource": false
       },
       {
-        "key": "searchfield",
+        "key": "searchMailbox",
         "templateOptions": {
-          "label": "Search",
+          "label": "Search (wildcard search in Name and Email addresses)",
+          "placeholder": "Name or Email addresses (use * to search all shared mailboxes)",
           "required": true
         },
         "type": "input",
-        "summaryVisibility": "Show",
+        "summaryVisibility": "Hide element",
         "requiresTemplateOptions": true,
         "requiresKey": true,
         "requiresDataSource": false
       },
       {
-        "key": "sharedMailbox",
+        "key": "gridMailbox",
         "templateOptions": {
-          "label": "Shared Mailboxes",
+          "label": "Mailbox",
           "required": true,
           "grid": {
             "columns": [
               {
-                "headerName": "Name",
-                "field": "name"
-              },
-              {
-                "headerName": "Alias",
-                "field": "alias"
+                "headerName": "Display Name",
+                "field": "DisplayName"
               },
               {
                 "headerName": "Primary Smtp Address",
-                "field": "primarySmtpAddress"
+                "field": "PrimarySmtpAddress"
               },
               {
-                "headerName": "Id",
-                "field": "id"
+                "headerName": "Email Addresses",
+                "field": "EmailAddresses"
+              },
+              {
+                "headerName": "Alias",
+                "field": "Alias"
+              },
+              {
+                "headerName": "Recipient Type Details",
+                "field": "RecipientTypeDetails"
               }
             ],
             "height": 300,
@@ -62,7 +67,7 @@
                 {
                   "propertyName": "searchValue",
                   "otherFieldValue": {
-                    "otherFieldKey": "searchfield"
+                    "otherFieldKey": "searchMailbox"
                   }
                 }
               ]
@@ -71,7 +76,7 @@
           "useFilter": true,
           "useDefault": false,
           "searchPlaceHolder": "Search this data",
-          "allowCsvDownload": true
+          "allowCsvDownload": false
         },
         "type": "grid",
         "summaryVisibility": "Show",
@@ -82,47 +87,174 @@
     ]
   },
   {
-    "label": "Edit Sharedmailbox",
+    "label": "Update mailbox",
     "fields": [
       {
+        "key": "displayName",
         "templateOptions": {
-          "title": "Retrieving this information from Exchange Online takes an average of +/- 10 seconds.",
-          "titleField": "",
-          "bannerType": "Info",
-          "useBody": true
-        },
-        "type": "textbanner",
-        "summaryVisibility": "Show",
-        "body": "Please wait so we can validate the input.",
-        "requiresTemplateOptions": false,
-        "requiresKey": false,
-        "requiresDataSource": false
-      },
-      {
-        "key": "name",
-        "templateOptions": {
-          "label": "name",
-          "placeholder": "",
+          "label": "Display name",
+          "placeholder": "IT department",
           "required": true,
-          "minLength": 2,
+          "pattern": "^[A-Za-z0-9À-ÿ .,_'-]{1,256}$",
+          "minLength": 1,
+          "maxLength": 256,
           "useDependOn": true,
-          "dependOn": "sharedMailbox",
-          "dependOnProperty": "name"
+          "dependOn": "gridMailbox",
+          "dependOnProperty": "DisplayName"
+        },
+        "validation": {
+          "messages": {
+            "pattern": ""
+          }
         },
         "type": "input",
         "summaryVisibility": "Show",
         "requiresTemplateOptions": true,
         "requiresKey": true,
+        "requiresDataSource": false
+      },
+      {
+        "key": "formRow",
+        "templateOptions": {},
+        "fieldGroup": [
+          {
+            "key": "mailPrefix",
+            "templateOptions": {
+              "label": "Email address",
+              "placeholder": "it-department",
+              "required": true,
+              "pattern": "^[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?$",
+              "minLength": 1,
+              "maxLength": 200,
+              "useDependOn": true,
+              "dependOn": "gridMailbox",
+              "dependOnProperty": "mailPrefix"
+            },
+            "validation": {
+              "messages": {
+                "pattern": ""
+              }
+            },
+            "type": "input",
+            "summaryVisibility": "Show",
+            "requiresTemplateOptions": true,
+            "requiresKey": true,
+            "requiresDataSource": false
+          },
+          {
+            "key": "mailDomain",
+            "templateOptions": {
+              "label": "Mail domain",
+              "required": true,
+              "useObjects": false,
+              "useDataSource": true,
+              "useFilter": false,
+              "options": [
+                "Option 1",
+                "Option 2",
+                "Option 3"
+              ],
+              "dataSourceConfig": {
+                "dataSourceGuid": "$dataSourceGuid_1",
+                "input": {
+                  "propertyInputs": [
+                    {
+                      "propertyName": "selectedMailbox",
+                      "otherFieldValue": {
+                        "otherFieldKey": "gridMailbox"
+                      }
+                    }
+                  ]
+                }
+              },
+              "valueField": "id",
+              "textField": "id",
+              "useDefault": true,
+              "defaultSelectorProperty": "id"
+            },
+            "type": "dropdown",
+            "summaryVisibility": "Show",
+            "textOrLabel": "text",
+            "requiresTemplateOptions": true,
+            "requiresKey": true,
+            "requiresDataSource": false
+          }
+        ],
+        "type": "formrow",
+        "requiresTemplateOptions": true,
+        "requiresKey": true,
+        "requiresDataSource": false
+      },
+      {
+        "key": "mailValidation",
+        "templateOptions": {
+          "label": "Email address validation",
+          "useDataSource": true,
+          "dataSourceConfig": {
+            "dataSourceGuid": "$dataSourceGuid_2",
+            "input": {
+              "propertyInputs": [
+                {
+                  "propertyName": "mailPrefix",
+                  "otherFieldValue": {
+                    "otherFieldKey": "mailPrefix"
+                  }
+                },
+                {
+                  "propertyName": "mailDomain",
+                  "otherFieldValue": {
+                    "otherFieldKey": "mailDomain"
+                  }
+                },
+                {
+                  "propertyName": "selectedMailbox",
+                  "otherFieldValue": {
+                    "otherFieldKey": "gridMailbox"
+                  }
+                }
+              ]
+            }
+          },
+          "displayField": "output",
+          "required": true,
+          "readonly": true,
+          "pattern": "^Valid.*",
+          "placeholder": "Email address will be validated on uniqnueness in Entra ID"
+        },
+        "hideExpression": "!model[\"mailPrefix\"]",
+        "type": "input",
+        "summaryVisibility": "Show",
+        "requiresTemplateOptions": true,
+        "requiresKey": true,
+        "requiresDataSource": false
+      },
+      {
+        "templateOptions": {
+          "title": "Alias is a pseudonym under the specified email. If alias is not provided, then it will be the same as the specified user name in the email address field.",
+          "titleField": "",
+          "bannerType": "Info"
+        },
+        "type": "textbanner",
+        "summaryVisibility": "Show",
+        "body": "Alias is a pseudonym under the specified email. If alias is not provided, then it will be the same as the specified user name in the email address field.",
+        "requiresTemplateOptions": false,
+        "requiresKey": false,
         "requiresDataSource": false
       },
       {
         "key": "alias",
         "templateOptions": {
           "label": "Alias",
+          "pattern": "^[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?$",
+          "placeholder": "it-dep",
           "useDependOn": true,
-          "dependOn": "sharedMailbox",
-          "dependOnProperty": "alias",
-          "required": true
+          "dependOn": "gridMailbox",
+          "dependOnProperty": "Alias"
+        },
+        "validation": {
+          "messages": {
+            "pattern": ""
+          }
         },
         "type": "input",
         "summaryVisibility": "Show",
@@ -131,61 +263,42 @@
         "requiresDataSource": false
       },
       {
-        "key": "primarySmtpAddress",
+        "key": "aliasValidation",
         "templateOptions": {
-          "label": "PrimarySmtpAddress",
-          "useDependOn": true,
-          "dependOn": "sharedMailbox",
-          "dependOnProperty": "primarySmtpAddress",
-          "required": true
-        },
-        "type": "input",
-        "summaryVisibility": "Show",
-        "requiresTemplateOptions": true,
-        "requiresKey": true,
-        "requiresDataSource": false
-      },
-      {
-        "key": "Validation",
-        "templateOptions": {
-          "label": "Validate",
+          "label": "Alias validation",
           "readonly": true,
-          "useDataSource": true,
           "pattern": "^Valid.*",
+          "useDataSource": true,
           "dataSourceConfig": {
-            "dataSourceGuid": "$dataSourceGuid_1",
+            "dataSourceGuid": "$dataSourceGuid_3",
             "input": {
               "propertyInputs": [
                 {
-                  "propertyName": "Name",
-                  "otherFieldValue": {
-                    "otherFieldKey": "name"
-                  }
-                },
-                {
-                  "propertyName": "PrimarySmtpAddress",
-                  "otherFieldValue": {
-                    "otherFieldKey": "primarySmtpAddress"
-                  }
-                },
-                {
-                  "propertyName": "Alias",
+                  "propertyName": "alias",
                   "otherFieldValue": {
                     "otherFieldKey": "alias"
                   }
                 },
                 {
-                  "propertyName": "SelectedSM",
+                  "propertyName": "mailDomain",
                   "otherFieldValue": {
-                    "otherFieldKey": "sharedMailbox"
+                    "otherFieldKey": "mailDomain"
+                  }
+                },
+                {
+                  "propertyName": "selectedMailbox",
+                  "otherFieldValue": {
+                    "otherFieldKey": "gridMailbox"
                   }
                 }
               ]
             }
           },
-          "displayField": "text",
-          "required": true
+          "displayField": "output",
+          "required": true,
+          "placeholder": "Alias will be validated on uniqnueness in Entra ID"
         },
+        "hideExpression": "!model[\"alias\"]",
         "type": "input",
         "summaryVisibility": "Show",
         "requiresTemplateOptions": true,

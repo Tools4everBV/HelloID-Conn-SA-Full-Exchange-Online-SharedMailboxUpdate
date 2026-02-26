@@ -10,9 +10,8 @@ HelloID-Conn-SA-Full-Exchange-Online-SharedMailboxUpdate is a delegated form des
 
 By using this delegated form, you can update an existing shared mailbox in Exchange Online. The following options are available:
 
-1. Search for a shared mailbox by entering a search term (alias/name)
-2. Retrieve and select the shared mailbox from the search results
-3. Edit the display name, alias, and primary SMTP address
+1. Search and select a shared mailbox (wildcard search by name and email addresses)
+3. Edit the display name, alias, and/or primary SMTP address
    > Email address is validated for uniqueness in Microsoft Entra ID
    > Alias is validated for uniqueness in Microsoft Entra ID
 4. Update the shared mailbox

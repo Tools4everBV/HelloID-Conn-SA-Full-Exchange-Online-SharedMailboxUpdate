@@ -2,7 +2,24 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com), and this project adheres to [Semantic Versioning](https://semver.org).
 
-## [2.0.0.0] - 2025-02-26
+## [2.1.0] - 2026-03-09
+
+### Added
+- Display name validation using Microsoft Graph API for uniqueness checks across all Entra ID objects
+- New validation data source `EntraID-Check-DisplayName-Unique` for real-time display name uniqueness validation
+- Email address mode selection: option to set as primary SMTP address or add as alias/secondary address
+- Flexible proxy address management supporting both primary email replacement and alias addition
+
+### Changed
+- Email address handling now supports two modes:
+  - **Set as Primary Email**: Converts email to primary SMTP address (uppercase "SMTP:"), demotes existing primary to alias
+  - **Add as Alias**: Adds email as secondary SMTP address (lowercase "smtp:"), preserves current primary
+- Validation now includes three separate data sources (DisplayName, EmailAddress, and Alias)
+- Proxy address management enhanced to handle both primary and alias scenarios
+- Duplicate email addresses automatically removed before adding new addresses
+- README updated with comprehensive documentation of new email handling modes and display name validation
+
+## [2.0.0] - 2025-02-26
 
 ### Added
 - Certificate-based authentication support for Microsoft Entra ID and Exchange Online
@@ -44,7 +61,7 @@ All notable changes to this project will be documented in this file. The format 
 - Enhanced error messages with better context for troubleshooting
 - Proxy address handling now properly maintains all existing addresses when updating primary SMTP
 
-## [1.0.0.0] - 2024-02-12
+## [1.0.0] - 2024-02-12
 
 ### Added
 - Initial release of HelloID-Conn-SA-Full-Exchange-Online-SharedMailboxUpdate

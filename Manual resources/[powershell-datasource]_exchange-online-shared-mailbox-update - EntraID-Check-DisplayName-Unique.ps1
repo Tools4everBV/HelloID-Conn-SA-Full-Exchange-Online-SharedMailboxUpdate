@@ -1,13 +1,11 @@
 # variables configured in form
 $mailbox = $datasource.selectedMailbox
-$alias = $datasource.alias
-$mailDomain = $datasource.mailDomain.id
-$PrimarySmtpAddress = "$alias@$mailDomain"
+$displayName = $datasource.displayName
 
 # Build filter - Graph API uses $filter with OData syntax
-# Check for mailboxes matching the displayName, mailNickname (alias), primary email or proxy addresses
+# Check for mailboxes matching the displayName
 # This will check ALL users (enabled and disabled), including shared/room/equipment mailboxes
-$filter = "`$filter=mailNickname eq '$alias' or mail eq '$PrimarySmtpAddress' or proxyAddresses/any(x:x eq 'smtp:$PrimarySmtpAddress') or proxyAddresses/any(x:x eq 'SMTP:$PrimarySmtpAddress')"
+$filter = "`$filter=displayName eq '$displayName'"
 
 # Global variables
 # Outcommented as these are set from Global Variables
@@ -234,32 +232,33 @@ try {
 
     # Select only specified properties to limit memory usage
     $microsoftEntraIDUsers = $null
-    $microsoftEntraIDUsers = $getMicrosoftEntraIDUsersResponse.Value | Select-Object $propertiesToSelect
+    $microsoftEntraIDUsers = $getMicrosoftEntraIDUsersResponse.Value #| Select-Object $propertiesToSelect
     Write-Information "Queried Microsoft Entra ID Users matching filter [$filter]. Result count: $(@($microsoftEntraIDUsers).Count)"
 
     # Check if value is unique and free
     if (($microsoftEntraIDUsers | Measure-Object).Count -gt 0) {
+        # Check if value is in use by selected mailbox
         if ($mailbox.ExternalDirectoryObjectId -in $microsoftEntraIDUsers.id) {
-            Write-Warning "Alias in use by the selected mailbox."  
+            Write-Warning "Display name in use by the selected mailbox."  
 
             # Send results to HelloID
             $actionMessage = "sending results to HelloID"
-            Write-Output "Valid: Alias in use by the selected mailbox."
+            Write-Output "Valid: Display name in use by the selected mailbox."
         }
         else {
-            Write-Warning "Alias is not unique. In use by object with displayName [$($microsoftEntraIDUsers.displayName)], userPrincipalName [$($microsoftEntraIDUsers.userPrincipalName)] mail [$($microsoftEntraIDUsers.mail)] and alias (mailNickName) [$($microsoftEntraIDUsers.mailNickName)]."
+            Write-Warning "Display name is not unique. In use by object with displayName [$($microsoftEntraIDUsers.displayName)], userPrincipalName [$($microsoftEntraIDUsers.userPrincipalName)] mail [$($microsoftEntraIDUsers.mail)] and alias (mailNickName) [$($microsoftEntraIDUsers.mailNickName)]."
 
             # Send results to HelloID
             $actionMessage = "sending results to HelloID"
-            Write-Output "Invalid: Alias is not unique. In use by object with displayName [$($microsoftEntraIDUsers.displayName)], userPrincipalName [$($microsoftEntraIDUsers.userPrincipalName)] mail [$($microsoftEntraIDUsers.mail)] and alias (mailNickName) [$($microsoftEntraIDUsers.mailNickName)]"
+            Write-Output "Invalid: Display name is not unique. In use by object with displayName [$($microsoftEntraIDUsers.displayName)], userPrincipalName [$($microsoftEntraIDUsers.userPrincipalName)] mail [$($microsoftEntraIDUsers.mail)] and alias (mailNickName) [$($microsoftEntraIDUsers.mailNickName)]"
         }
     }
     else {
-        Write-Information "Alias is unique and free to use."
+        Write-Information "Display name is unique and free to use."
 
         # Send results to HelloID
         $actionMessage = "sending results to HelloID"
-        Write-Output "Valid: Alias is unique and free to use." 
+        Write-Output "Valid: Display name is unique and free to use." 
     }
 }
 catch {

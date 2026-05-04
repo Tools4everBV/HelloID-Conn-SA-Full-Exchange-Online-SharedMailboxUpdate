@@ -1,7 +1,7 @@
 # variables configured in form
 $mailbox = $datasource.selectedMailbox
 $alias = $datasource.alias
-$mailDomain = $datasource.mailDomain.Maildomain
+$mailDomain = $datasource.mailDomain.id
 $PrimarySmtpAddress = "$alias@$mailDomain"
 
 # Build filter - Graph API uses $filter with OData syntax
@@ -237,9 +237,8 @@ try {
     $microsoftEntraIDUsers = $getMicrosoftEntraIDUsersResponse.Value | Select-Object $propertiesToSelect
     Write-Information "Queried Microsoft Entra ID Users matching filter [$filter]. Result count: $(@($microsoftEntraIDUsers).Count)"
 
-    # Check if UPN is unique and free in AD
+    # Check if value is unique and free
     if (($microsoftEntraIDUsers | Measure-Object).Count -gt 0) {
-        # Check if value is in use by selected mailbox
         if ($mailbox.ExternalDirectoryObjectId -in $microsoftEntraIDUsers.id) {
             Write-Warning "Alias in use by the selected mailbox."  
 
@@ -248,11 +247,11 @@ try {
             Write-Output "Valid: Alias in use by the selected mailbox."
         }
         else {
-            Write-Warning "Alias is not unique. In use by: $($microsoftEntraIDUsers.UserprincipalName -Join ';')."
+            Write-Warning "Alias is not unique. In use by object with displayName [$($microsoftEntraIDUsers.displayName)], userPrincipalName [$($microsoftEntraIDUsers.userPrincipalName)] mail [$($microsoftEntraIDUsers.mail)] and alias (mailNickName) [$($microsoftEntraIDUsers.mailNickName)]."
 
             # Send results to HelloID
             $actionMessage = "sending results to HelloID"
-            Write-Output "Invalid: Alias is not unique. In use by: $($microsoftEntraIDUsers.UserprincipalName -Join ';')"
+            Write-Output "Invalid: Alias is not unique. In use by object with displayName [$($microsoftEntraIDUsers.displayName)], userPrincipalName [$($microsoftEntraIDUsers.userPrincipalName)] mail [$($microsoftEntraIDUsers.mail)] and alias (mailNickName) [$($microsoftEntraIDUsers.mailNickName)]"
         }
     }
     else {

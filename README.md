@@ -11,11 +11,15 @@ HelloID-Conn-SA-Full-Exchange-Online-SharedMailboxUpdate is a delegated form des
 By using this delegated form, you can update an existing shared mailbox in Exchange Online. The following options are available:
 
 1. Search and select a shared mailbox (wildcard search by name and email addresses)
-3. Edit the display name, alias, and/or primary SMTP address
+3. Edit the display name, alias, and/or email address
+   > Display name is validated for uniqueness in Microsoft Entra ID
    > Email address is validated for uniqueness in Microsoft Entra ID
    > Alias is validated for uniqueness in Microsoft Entra ID
-4. Update the shared mailbox
-   > The shared mailbox is updated using the provided display name, alias, and email address. The mailbox proxy addresses are rebuilt to reflect the new primary SMTP address.
+4. Configure the email address handling:
+   > **Set as Primary Email**: The email address becomes the new primary SMTP address, and the current primary email is converted to an alias in proxy addresses
+   > **Add as Alias**: The email address is added as a secondary SMTP address (alias) in proxy addresses
+5. Update the shared mailbox
+   > The shared mailbox is updated using the provided display name, alias, and email address. The mailbox proxy addresses are rebuilt to reflect the changes while preserving existing proxy addresses.
 
 ## Getting started
 
@@ -57,15 +61,17 @@ The following global variables must be configured in HelloID when importing and 
 
 ## Remarks
 
-### Email Address & Alias Validation via Graph API
+### Display Name, Email Address & Alias Validation via Graph API
 
-- **Performance optimization**: Instead of using the Exchange Online cmdlet `Get-Mailbox` (which can take 30+ seconds per query), the connector uses the Microsoft Graph API to validate email address and alias uniqueness
+- **Performance optimization**: Instead of using the Exchange Online cmdlet `Get-Mailbox` (which can take 30+ seconds per query), the connector uses the Microsoft Graph API to validate display name, email address, and alias uniqueness
 - **Validation scope**: Checks for uniqueness across all types of objects in Entra ID (users, shared mailboxes, room mailboxes, equipment mailboxes, etc.)
 - **Graph API filters**: Uses OData `$filter` queries on the following properties:
+  - `displayName` - Display name
   - `mailNickname` - Mail nickname/alias
   - `mail` - Primary SMTP address
   - `proxyAddresses` - Proxy addresses (both smtp and SMTP variants)
-- **Two separate data sources**:
+- **Three separate data sources**:
+  - `EntraID-Check-DisplayName-Unique` - Validates the display name uniqueness
   - `EntraID-Check-EmailAddress-Unique` - Validates the email address uniqueness
   - `EntraID-Check-Alias-Unique` - Validates the alias uniqueness
 
@@ -89,15 +95,21 @@ When the form is submitted, the following process occurs in Exchange Online:
    - **Display Name**: Updated to the value entered in the form
    - **Mailbox Name**: Updated to the value entered in the form
    - **Alias**: Updated to the specified alias value
-   - **Primary SMTP Address**: Updated by rebuilding the proxy addresses collection
-     - All existing proxy addresses are preserved
-     - The new primary SMTP address is set with uppercase "SMTP:" prefix
-     - Previous primary addresses are converted to secondary (lowercase "smtp:")
+   - **Email Address Handling**: Based on the "Set as Primary Email" option:
+     - **If enabled**: Email address is set as the new primary SMTP address (uppercase "SMTP:" prefix)
+     - **If disabled**: Email address is added as a secondary SMTP address/alias (lowercase "smtp:" prefix)
 
 2. **Proxy Address Management**
-   - The script rebuilds the proxy addresses to ensure the new primary SMTP is correctly set
-   - Existing proxy addresses are maintained to preserve email routing
-   - The primary SMTP address is identified by the uppercase "SMTP:" prefix
+   - The script rebuilds the proxy addresses based on the selected option
+   - **When setting as primary email**:
+     - The new email address is added with uppercase "SMTP:" prefix (primary)
+     - All existing primary addresses are converted to secondary (lowercase "smtp:")
+     - Existing proxy addresses are preserved to maintain email routing
+   - **When adding as alias**:
+     - The new email address is added with lowercase "smtp:" prefix (alias)
+     - The current primary SMTP address remains unchanged
+     - Existing proxy addresses are preserved
+   - Duplicate addresses are automatically removed before adding the new address
 
 ## Development resources
 
